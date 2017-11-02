@@ -34,7 +34,7 @@ where
     T: Copy,
     T: rand::Rand,
 {
-    vals: Vec<Box<[T]>>,
+    vals: Vec<[T; 3]>,
 }
 
 
@@ -44,23 +44,18 @@ where
     f32: From<T>,
     T: rand::Rand,
 {
-    pub fn new(k: usize, d: usize) -> KMeans<T> {
+    pub fn new(k: usize) -> KMeans<T> {
         let mut rng = thread_rng();
         let mut vals = Vec::new();
 
         for _ in 0..k {
-            let mut dat = Vec::new();
-            for _ in 0..d {
-                dat.push(rng.gen());
-            }
-
-            vals.push(dat.into_boxed_slice());
+            vals.push([rng.gen(), rng.gen(), rng.gen()]);
         }
 
         KMeans { vals }
     }
 
-    pub fn class_val(&self, p: &[T]) -> &Box<[T]> {
+    pub fn class_val(&self, p: &[T]) -> &[T; 3] {
         let idx = self.class_idx(p);
         &self.vals[idx]
     }
@@ -103,7 +98,7 @@ impl KMeans<u8> {
 
         for (o, &n) in self.vals.iter_mut().zip(new_centers.iter()) {
             if let Some(v) = n {
-                *o = Box::new(v);
+                *o = v;
             }
         }
     }
@@ -126,7 +121,7 @@ fn main() {
     let mut img = image::open(&filename).unwrap();
 
     {
-        let mut kmeans = KMeans::new(k, 3);
+        let mut kmeans = KMeans::new(k);
         let imgrgb = img.as_mut_rgb8().expect("Cannot read image as RGB");
 
         // Iterate a fixed amount
@@ -137,9 +132,7 @@ fn main() {
         // Quantize the image
         for p in imgrgb.pixels_mut() {
             let v = kmeans.class_val(&p.data);
-            *p = Pix {
-                data: [v[0], v[1], v[2]],
-            };
+            *p = Pix { data: *v };
         }
     }
 

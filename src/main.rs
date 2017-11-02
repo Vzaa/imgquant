@@ -6,10 +6,9 @@ use std::env;
 use std::fs::File;
 
 use rayon::prelude::*;
+use rayon::iter::ParallelIterator;
 use rand::{thread_rng, Rng};
 use image::{ImageBuffer, Rgb};
-
-use rayon::iter::ParallelIterator;
 
 pub type Pix = Rgb<u8>;
 pub type ImgRgb = ImageBuffer<Pix, Vec<u8>>;
@@ -29,45 +28,62 @@ where
 }
 
 
-struct KMeans<T> {
-    vals: Vec<T>,
+pub struct KMeans<T>
+where
+    T: Sized,
+    T: Copy,
+    T: rand::Rand,
+{
+    vals: Vec<Box<[T]>>,
 }
 
-impl KMeans<Pix> {
-    pub fn new(cnt: usize) -> KMeans<Pix> {
+
+impl<T> KMeans<T>
+where
+    T: Copy,
+    f32: From<T>,
+    T: rand::Rand,
+{
+    pub fn new(k: usize, d: usize) -> KMeans<T> {
         let mut rng = thread_rng();
         let mut vals = Vec::new();
 
-        for _ in 0..cnt {
-            vals.push(Pix {
-                data: [rng.gen(), rng.gen(), rng.gen()],
-            });
+        for _ in 0..k {
+            let mut dat = Vec::new();
+            for _ in 0..d {
+                dat.push(rng.gen());
+            }
+
+            vals.push(dat.into_boxed_slice());
         }
 
         KMeans { vals }
     }
 
-    pub fn class_idx(&self, p: &Pix) -> usize {
+    pub fn class_val(&self, p: &[T]) -> &Box<[T]> {
+        let idx = self.class_idx(p);
+        &self.vals[idx]
+    }
+
+    pub fn class_idx(&self, p: &[T]) -> usize {
         let m = self.vals
             .iter()
-            .map(|k| dist(&k.data, &p.data))
+            .map(|k| dist(k, p))
             .enumerate()
             .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
 
         m.unwrap().0
     }
+}
 
-    pub fn class_val(&self, p: &Pix) -> Pix {
-        self.vals[self.class_idx(p)]
-    }
-
+impl KMeans<u8> {
     pub fn update(&mut self, imgrgb: &ImgRgb) {
         let new_centers: Vec<_> = (0..self.vals.len())
             .into_par_iter()
             .map(|c| {
                 let (cnt, sums) = imgrgb
                     .pixels()
-                    .filter(|&p| self.class_idx(p) == c)
+                    .filter(|&p| self.class_idx(&p.data) == c)
                     .map(|p| [p.data[0] as u64, p.data[1] as u64, p.data[2] as u64])
                     .fold((0, [0, 0, 0]), |(cnt, acc), x| {
                         (cnt + 1, [acc[0] + x[0], acc[1] + x[1], acc[2] + x[2]])
@@ -77,19 +93,17 @@ impl KMeans<Pix> {
                     return None;
                 }
 
-                Some(Pix {
-                    data: [
-                        (sums[0] / cnt) as u8,
-                        (sums[1] / cnt) as u8,
-                        (sums[2] / cnt) as u8,
-                    ],
-                })
+                Some([
+                    (sums[0] / cnt) as u8,
+                    (sums[1] / cnt) as u8,
+                    (sums[2] / cnt) as u8,
+                ])
             })
             .collect();
 
         for (o, &n) in self.vals.iter_mut().zip(new_centers.iter()) {
             if let Some(v) = n {
-                *o = v;
+                *o = Box::new(v);
             }
         }
     }
@@ -102,15 +116,17 @@ fn main() {
         .unwrap_or("12".to_owned())
         .parse()
         .unwrap();
+
     let iters = env::args()
         .nth(3)
         .unwrap_or("20".to_owned())
         .parse()
         .unwrap();
+
     let mut img = image::open(&filename).unwrap();
 
     {
-        let mut kmeans = KMeans::new(k);
+        let mut kmeans = KMeans::new(k, 3);
         let imgrgb = img.as_mut_rgb8().expect("Cannot read image as RGB");
 
         // Iterate a fixed amount
@@ -120,7 +136,10 @@ fn main() {
 
         // Quantize the image
         for p in imgrgb.pixels_mut() {
-            *p = kmeans.class_val(&p);
+            let v = kmeans.class_val(&p.data);
+            *p = Pix {
+                data: [v[0], v[1], v[2]],
+            };
         }
     }
 

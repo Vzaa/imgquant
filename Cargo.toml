@@ -7,3 +7,4 @@ authors = ["Vzaa <Vzaa@users.noreply.github.com>"]
 rand = "0.3.17"
 image = "0.17.0"
 rayon = "0.8.2"
+itertools = "0.7.2"

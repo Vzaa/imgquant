@@ -1,4 +1,6 @@
 extern crate image;
+#[macro_use]
+extern crate itertools;
 extern crate rand;
 extern crate rayon;
 
@@ -7,7 +9,7 @@ use std::fs::File;
 
 use rayon::prelude::*;
 use rayon::iter::ParallelIterator;
-use rand::{thread_rng, Rng, Rand};
+use rand::{thread_rng, Rand, Rng};
 use image::{ImageBuffer, Rgb};
 
 pub type Pix = Rgb<u8>;
@@ -20,7 +22,7 @@ where
     U: Copy,
     U: 'a,
 {
-    a.zip(b).fold(0.0_f32, |acc, (x, y)| {
+    izip!(a, b).fold(0.0_f32, |acc, (x, y)| {
         let fx: f32 = (*x).into();
         let fy: f32 = (*y).into();
 
@@ -91,11 +93,9 @@ impl KMeans<[u8; 3]> {
                     .pixels()
                     .filter(|&p| self.class_idx(&p.data) == c)
                     .map(|p| p.data)
-                    .fold((0, [0_u64, 0_u64, 0_u64]), |(cnt, mut acc), x| {
+                    .fold((0, [0_u64; 3]), |(cnt, mut acc), x| {
                         (cnt + 1, {
-                            acc.iter_mut()
-                                .zip(x.iter())
-                                .for_each(|(a, b)| *a += *b as u64);
+                            izip!(&mut acc, &x).for_each(|(a, b)| *a += *b as u64);
                             acc
                         })
                     });
@@ -112,7 +112,7 @@ impl KMeans<[u8; 3]> {
             })
             .collect();
 
-        for (o, &n) in self.vals.iter_mut().zip(new_centers.iter()) {
+        for (o, &n) in izip!(&mut self.vals, &new_centers) {
             if let Some(v) = n {
                 *o = v;
             }

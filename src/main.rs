@@ -85,20 +85,25 @@ where
 }
 
 impl KMeans<[u8; 3]> {
-    pub fn update(&mut self, imgrgb: &ImgRgb) {
+    pub fn update<F, I>(&mut self, ff: F)
+    where
+        F: Fn() -> I,
+        I: Iterator<Item = [u8; 3]>,
+        F: Send,
+        F: Sync,
+    {
         let new_centers: Vec<_> = (0..self.vals.len())
             .into_par_iter()
             .map(|c| {
-                let (cnt, sums) = imgrgb
-                    .pixels()
-                    .filter(|&p| self.class_idx(&p.data) == c)
-                    .map(|p| p.data)
+                let (cnt, sums) = ff()
+                    .filter(|&p| self.class_idx(&p) == c)
                     .fold((0, [0_u64; 3]), |(cnt, mut acc), x| {
                         (cnt + 1, {
                             izip!(&mut acc, &x).for_each(|(a, b)| *a += *b as u64);
                             acc
                         })
-                    });
+                    },
+                );
 
                 if cnt == 0 {
                     return None;
@@ -144,7 +149,7 @@ fn main() {
 
         // Iterate a fixed amount
         for _ in 0..iters {
-            kmeans.update(imgrgb);
+            kmeans.update(|| imgrgb.pixels().map(|p| p.data));
         }
 
         // Quantize the image

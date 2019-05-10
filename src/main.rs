@@ -1,14 +1,9 @@
-extern crate image;
-#[macro_use]
-extern crate itertools;
-extern crate rand;
-extern crate rayon;
-
 use std::env;
 
 use image::{ImageBuffer, Rgb};
-use rand::{thread_rng, Rng};
+use itertools::izip;
 use rand::distributions::{Distribution, Standard};
+use rand::{thread_rng, Rng};
 use rayon::iter::ParallelIterator;
 use rayon::prelude::*;
 

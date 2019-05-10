@@ -5,12 +5,12 @@ extern crate rand;
 extern crate rayon;
 
 use std::env;
-use std::fs::File;
 
-use rayon::prelude::*;
-use rayon::iter::ParallelIterator;
-use rand::{thread_rng, Rand, Rng};
 use image::{ImageBuffer, Rgb};
+use rand::{thread_rng, Rng};
+use rand::distributions::{Distribution, Standard};
+use rayon::iter::ParallelIterator;
+use rayon::prelude::*;
 
 pub type Pix = Rgb<u8>;
 pub type ImgRgb = ImageBuffer<Pix, Vec<u8>>;
@@ -47,7 +47,7 @@ where
     }
 }
 
-pub struct KMeans<T = Sized> {
+pub struct KMeans<T> {
     vals: Vec<T>,
 }
 
@@ -55,7 +55,7 @@ impl<'a, T> KMeans<T>
 where
     &'a T: Dist,
     T: 'a,
-    T: Rand,
+    Standard: Distribution<T>,
 {
     pub fn new(k: usize) -> KMeans<T> {
         let mut rng = thread_rng();
@@ -74,7 +74,8 @@ where
     }
 
     pub fn class_idx(&'a self, p: &'a T) -> usize {
-        let m = self.vals
+        let m = self
+            .vals
             .iter()
             .map(|k| k.dist(p))
             .enumerate()
@@ -95,9 +96,9 @@ impl KMeans<[u8; 3]> {
         let new_centers: Vec<_> = (0..self.vals.len())
             .into_par_iter()
             .map(|c| {
-                let (cnt, sums) = ff()
-                    .filter(|&p| self.class_idx(&p) == c)
-                    .fold((0, [0_u64; 3]), |(cnt, mut acc), x| {
+                let (cnt, sums) = ff().filter(|&p| self.class_idx(&p) == c).fold(
+                    (0, [0_u64; 3]),
+                    |(cnt, mut acc), x| {
                         (cnt + 1, {
                             izip!(&mut acc, &x).for_each(|(a, b)| *a += *b as u64);
                             acc
@@ -158,6 +159,5 @@ fn main() {
         }
     }
 
-    let mut fout = File::create(outfl).unwrap();
-    img.save(&mut fout, image::PNG).unwrap();
+    img.save(&outfl).unwrap();
 }

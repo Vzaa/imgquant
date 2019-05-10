@@ -95,7 +95,7 @@ impl KMeans<[u8; 3]> {
                     (0, [0_u64; 3]),
                     |(cnt, mut acc), x| {
                         (cnt + 1, {
-                            izip!(&mut acc, &x).for_each(|(a, b)| *a += *b as u64);
+                            izip!(&mut acc, &x).for_each(|(a, b)| *a += u64::from(*b));
                             acc
                         })
                     },
@@ -125,17 +125,17 @@ fn main() {
     let filename = env::args().nth(1).expect("No filename entered");
     let k = env::args()
         .nth(2)
-        .unwrap_or("12".to_owned())
+        .unwrap_or_else(|| "12".to_owned())
         .parse()
         .unwrap();
 
     let iters = env::args()
         .nth(3)
-        .unwrap_or("20".to_owned())
+        .unwrap_or_else(|| "20".to_owned())
         .parse()
         .unwrap();
 
-    let outfl = env::args().nth(4).unwrap_or("qout.png".to_owned());
+    let outfl = env::args().nth(4).unwrap_or_else(|| "qout.png".to_owned());
 
     let mut img = image::open(&filename).unwrap();
 
